@@ -1,24 +1,31 @@
-<mat-sidenav-container class="sidenav-container">
-  <mat-sidenav mode="side" opened class="sidenav">
-    <mat-toolbar color="primary">
-      <mat-icon>home_work</mat-icon>&nbsp;PropManager
-    </mat-toolbar>
-    <mat-nav-list>
-      @for (item of navItems; track item.route) {
-        <a mat-list-item [routerLink]="item.route" routerLinkActive="active-link">
-          <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
-          <span matListItemTitle>{{ item.label }}</span>
-        </a>
-      }
-    </mat-nav-list>
-  </mat-sidenav>
+@if (showShell()) {
+  <mat-sidenav-container class="sidenav-container">
+    <mat-sidenav mode="side" opened class="sidenav">
+      <mat-toolbar color="primary">
+        <mat-icon>home_work</mat-icon>&nbsp;PropManager
+      </mat-toolbar>
+      <mat-nav-list>
+        @for (item of navItems; track item.route) {
+          <a mat-list-item [routerLink]="item.route" routerLinkActive="active-link">
+            <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+            <span matListItemTitle>{{ item.label }}</span>
+          </a>
+        }
+      </mat-nav-list>
+    </mat-sidenav>
 
-  <mat-sidenav-content class="content">
-    <mat-toolbar color="primary">
-      <span>Property Management System</span>
-    </mat-toolbar>
-    <div class="page-content">
-      <router-outlet />
-    </div>
-  </mat-sidenav-content>
-</mat-sidenav-container>
+    <mat-sidenav-content class="content">
+      <mat-toolbar color="primary" class="topbar">
+        <span>Property Management System</span>
+        <span class="toolbar-spacer"></span>
+        <span class="user-label">{{ displayName() }}</span>
+        <button mat-button type="button" (click)="logout()">Logout</button>
+      </mat-toolbar>
+      <div class="page-content">
+        <router-outlet />
+      </div>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+} @else {
+  <router-outlet />
+}

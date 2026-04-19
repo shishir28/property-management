@@ -5,3 +5,4 @@ langchain-ollama
 httpx
 python-dotenv
 pydantic-settings
+redis

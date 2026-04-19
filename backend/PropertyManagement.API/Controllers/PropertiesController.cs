@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using PropertyManagement.API.Pagination;
 using PropertyManagement.Application.Properties.Commands;
 using PropertyManagement.Application.Properties.Queries;
 
@@ -12,6 +13,10 @@ public class PropertiesController(IMediator mediator) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken ct) =>
         Ok(await mediator.Send(new GetAllPropertiesQuery(), ct));
+
+    [HttpGet("paged")]
+    public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 10, CancellationToken ct = default) =>
+        Ok((await mediator.Send(new GetAllPropertiesQuery(), ct)).ToPagedResponse(page, pageSize));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)

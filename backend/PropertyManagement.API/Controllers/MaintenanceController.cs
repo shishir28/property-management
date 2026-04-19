@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using PropertyManagement.API.Pagination;
 using PropertyManagement.Application.Maintenance.Commands;
 using PropertyManagement.Application.Maintenance.Queries;
 
@@ -23,6 +24,14 @@ public class MaintenanceController(IMediator mediator) : ControllerBase
     [HttpGet("open/{priority}")]
     public async Task<IActionResult> GetOpenByPriority(string priority, CancellationToken ct) =>
         Ok(await mediator.Send(new GetOpenMaintenanceByPriorityQuery(priority), ct));
+
+    [HttpGet("open/{priority}/paged")]
+    public async Task<IActionResult> GetOpenByPriorityPaged(
+        string priority,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken ct = default) =>
+        Ok((await mediator.Send(new GetOpenMaintenanceByPriorityQuery(priority), ct)).ToPagedResponse(page, pageSize));
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateMaintenanceRequestCommand cmd, CancellationToken ct)

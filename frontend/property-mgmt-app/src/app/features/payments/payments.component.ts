@@ -47,22 +47,39 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
       <tr mat-header-row *matHeaderRowDef="cols"></tr>
       <tr mat-row *matRowDef="let row; columns: cols;"></tr>
     </table>
+
+    <div class="pager">
+      <span>Page {{ page() }} · {{ totalCount() }} total</span>
+      <div class="pager-actions">
+        <button mat-stroked-button type="button" [disabled]="page() === 1" (click)="previousPage()">Previous</button>
+        <button mat-stroked-button type="button" [disabled]="page() * pageSize >= totalCount()" (click)="nextPage()">Next</button>
+      </div>
+    </div>
   `,
-  styles: [`.form-card{margin-bottom:16px}mat-form-field{margin-right:8px}.full-width{width:100%}`]
+  styles: [`.form-card{margin-bottom:16px}mat-form-field{margin-right:8px}.full-width{width:100%}.pager{display:flex;justify-content:space-between;align-items:center;margin-top:12px}.pager-actions{display:flex;gap:8px}`]
 })
 export class PaymentsComponent implements OnInit {
   private api = inject(ApiService);
   private snack = inject(MatSnackBar);
   overdue = signal<Payment[]>([]);
+  totalCount = signal(0);
+  page = signal(1);
+  readonly pageSize = 10;
   cols = ['leaseId', 'amount', 'dueDate', 'status', 'actions'];
   form = { leaseId: '', amount: 0, dueDate: '' };
 
   ngOnInit() { this.load(); }
-  load() { this.api.getOverduePayments().subscribe(p => this.overdue.set(p)); }
+  load() {
+    this.api.getOverduePaymentsPage(this.page(), this.pageSize).subscribe(response => {
+      this.overdue.set(response.items);
+      this.totalCount.set(response.totalCount);
+    });
+  }
 
   add() {
-    this.api.createMaintenance(this.form as any).subscribe(() => {
+    this.api.createPayment(this.form).subscribe(() => {
       this.snack.open('Payment record created', 'OK', { duration: 2000 });
+      this.page.set(1);
       this.load();
     });
   }
@@ -77,5 +94,23 @@ export class PaymentsComponent implements OnInit {
   runCollection() {
     this.api.runRentCollection().subscribe(() =>
       this.snack.open('Collection workflow triggered', 'OK', { duration: 3000 }));
+  }
+
+  nextPage() {
+    if (this.page() * this.pageSize >= this.totalCount()) {
+      return;
+    }
+
+    this.page.update(page => page + 1);
+    this.load();
+  }
+
+  previousPage() {
+    if (this.page() === 1) {
+      return;
+    }
+
+    this.page.update(page => page - 1);
+    this.load();
   }
 }

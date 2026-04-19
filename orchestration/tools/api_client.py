@@ -10,8 +10,26 @@ async def get_lease(lease_id: str) -> dict:
     return r.json()
 
 
+async def get_leases() -> list[dict]:
+    r = await _client.get("/api/leases")
+    r.raise_for_status()
+    return r.json()
+
+
+async def get_expiring_leases(within_days: int = 60) -> list[dict]:
+    r = await _client.get(f"/api/leases/expiring?withinDays={within_days}")
+    r.raise_for_status()
+    return r.json()
+
+
 async def get_inspection(inspection_id: str) -> dict:
     r = await _client.get(f"/api/inspections/{inspection_id}")
+    r.raise_for_status()
+    return r.json()
+
+
+async def get_inspections() -> list[dict]:
+    r = await _client.get("/api/inspections")
     r.raise_for_status()
     return r.json()
 
@@ -24,6 +42,12 @@ async def get_tenant(tenant_id: str) -> dict:
 
 async def get_maintenance_request(request_id: str) -> dict:
     r = await _client.get(f"/api/maintenance/{request_id}")
+    r.raise_for_status()
+    return r.json()
+
+
+async def get_open_maintenance(priority: str) -> list[dict]:
+    r = await _client.get(f"/api/maintenance/open/{priority}")
     r.raise_for_status()
     return r.json()
 

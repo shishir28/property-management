@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using PropertyManagement.API.Pagination;
 using PropertyManagement.Application.Inspections.Commands;
 using PropertyManagement.Application.Inspections.Queries;
 
@@ -13,9 +14,17 @@ public class InspectionsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetAll(CancellationToken ct) =>
         Ok(await mediator.Send(new GetAllInspectionsQuery(), ct));
 
+    [HttpGet("paged")]
+    public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 10, CancellationToken ct = default) =>
+        Ok((await mediator.Send(new GetAllInspectionsQuery(), ct)).ToPagedResponse(page, pageSize));
+
     [HttpGet("scheduled")]
     public async Task<IActionResult> GetScheduled(CancellationToken ct) =>
         Ok(await mediator.Send(new GetScheduledInspectionsQuery(), ct));
+
+    [HttpGet("scheduled/paged")]
+    public async Task<IActionResult> GetScheduledPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 10, CancellationToken ct = default) =>
+        Ok((await mediator.Send(new GetScheduledInspectionsQuery(), ct)).ToPagedResponse(page, pageSize));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)

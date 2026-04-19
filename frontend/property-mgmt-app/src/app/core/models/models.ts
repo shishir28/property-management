@@ -49,9 +49,40 @@ export interface Payment {
   paymentMethod?: string;
 }
 
-export interface WorkflowJob {
+export interface Inspection {
+  id: string;
+  propertyId: string;
+  leaseId?: string | null;
+  type: string;
+  status: string;
+  scheduledAt: string;
+  completedAt?: string | null;
+  notes?: string | null;
+}
+
+export interface WorkflowLaunchResponse {
   job_id: string;
+  status: string;
+}
+
+export interface PagedResponse<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+export interface WorkflowJob {
   status: 'running' | 'completed' | 'failed';
   result?: Record<string, unknown>;
   error?: string;
+}
+
+export interface LoginResponse {
+  accessToken: string;
+  expiresAtUtc: string;
+  displayName: string;
+  username: string;
+  role: string;
 }

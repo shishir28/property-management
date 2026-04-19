@@ -58,6 +58,15 @@ services:
     networks:
       - property-net
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - property-net
+
   # ── .NET 10 API — creates schema + seeds data on startup ─────────────────
 
   dotnet-api:
@@ -70,6 +79,10 @@ services:
     environment:
       ConnectionStrings__TiDb: "Server=tidb;Port=4000;Database=property_mgmt;User=root;Password=;"
       Orchestration__BaseUrl: "http://orchestration:8000"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:-dev-signing-key-change-me-please-1234567890}"
+      DevAuth__Username: "${DEV_AUTH_USERNAME:-admin@property.local}"
+      DevAuth__Password: "${DEV_AUTH_PASSWORD:-Passw0rd!}"
+      DevAuth__DisplayName: "${DEV_AUTH_DISPLAY_NAME:-Local Admin}"
       ASPNETCORE_ENVIRONMENT: Production
     depends_on:
       tidb:
@@ -90,10 +103,12 @@ services:
     environment:
       OLLAMA_BASE_URL: "http://host.docker.internal:11434"
       DOTNET_API_BASE_URL: "http://dotnet-api:5000"
+      REDIS_URL: "redis://redis:6379/0"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       - dotnet-api
+      - redis
     restart: unless-stopped
     networks:
       - property-net

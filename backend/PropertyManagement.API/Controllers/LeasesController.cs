@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using PropertyManagement.API.Pagination;
 using PropertyManagement.Application.Leases.Commands;
 using PropertyManagement.Application.Leases.Queries;
 using PropertyManagement.Application.Workflows.Commands;
@@ -14,6 +15,10 @@ public class LeasesController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetAll(CancellationToken ct) =>
         Ok(await mediator.Send(new GetAllLeasesQuery(), ct));
 
+    [HttpGet("paged")]
+    public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 10, CancellationToken ct = default) =>
+        Ok((await mediator.Send(new GetAllLeasesQuery(), ct)).ToPagedResponse(page, pageSize));
+
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
@@ -24,6 +29,14 @@ public class LeasesController(IMediator mediator) : ControllerBase
     [HttpGet("expiring")]
     public async Task<IActionResult> GetExpiring([FromQuery] int withinDays = 60, CancellationToken ct = default) =>
         Ok(await mediator.Send(new GetExpiringSoonLeasesQuery(withinDays), ct));
+
+    [HttpGet("expiring/paged")]
+    public async Task<IActionResult> GetExpiringPaged(
+        [FromQuery] int withinDays = 60,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken ct = default) =>
+        Ok((await mediator.Send(new GetExpiringSoonLeasesQuery(withinDays), ct)).ToPagedResponse(page, pageSize));
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateLeaseCommand cmd, CancellationToken ct)

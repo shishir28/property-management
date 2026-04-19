@@ -39,23 +39,40 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
       <tr mat-header-row *matHeaderRowDef="cols"></tr>
       <tr mat-row *matRowDef="let row; columns: cols;"></tr>
     </table>
+
+    <div class="pager">
+      <span>Page {{ page() }} · {{ totalCount() }} total</span>
+      <div class="pager-actions">
+        <button mat-stroked-button type="button" [disabled]="page() === 1" (click)="previousPage()">Previous</button>
+        <button mat-stroked-button type="button" [disabled]="page() * pageSize >= totalCount()" (click)="nextPage()">Next</button>
+      </div>
+    </div>
   `,
-  styles: [`.form-card{margin-bottom:16px}mat-form-field{margin-right:8px}.full-width{width:100%}`]
+  styles: [`.form-card{margin-bottom:16px}mat-form-field{margin-right:8px}.full-width{width:100%}.pager{display:flex;justify-content:space-between;align-items:center;margin-top:12px}.pager-actions{display:flex;gap:8px}`]
 })
 export class TenantsComponent implements OnInit {
   private api = inject(ApiService);
   private snack = inject(MatSnackBar);
   tenants = signal<Tenant[]>([]);
+  totalCount = signal(0);
+  page = signal(1);
+  readonly pageSize = 10;
   cols = ['name', 'email', 'status', 'actions'];
   form = { firstName: '', lastName: '', email: '', phone: '' };
 
   ngOnInit() { this.load(); }
-  load() { this.api.getTenants().subscribe(t => this.tenants.set(t)); }
+  load() {
+    this.api.getTenantsPage(this.page(), this.pageSize).subscribe(response => {
+      this.tenants.set(response.items);
+      this.totalCount.set(response.totalCount);
+    });
+  }
 
   add() {
     this.api.createTenant(this.form).subscribe(() => {
       this.snack.open('Tenant added', 'OK', { duration: 2000 });
       this.form = { firstName: '', lastName: '', email: '', phone: '' };
+      this.page.set(1);
       this.load();
     });
   }
@@ -65,5 +82,23 @@ export class TenantsComponent implements OnInit {
       this.snack.open('Tenant activated', 'OK', { duration: 2000 });
       this.load();
     });
+  }
+
+  nextPage() {
+    if (this.page() * this.pageSize >= this.totalCount()) {
+      return;
+    }
+
+    this.page.update(page => page + 1);
+    this.load();
+  }
+
+  previousPage() {
+    if (this.page() === 1) {
+      return;
+    }
+
+    this.page.update(page => page - 1);
+    this.load();
   }
 }

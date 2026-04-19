@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using PropertyManagement.API.Pagination;
 using PropertyManagement.Application.Finance.Commands;
 using PropertyManagement.Application.Finance.Queries;
 
@@ -16,6 +17,10 @@ public class PaymentsController(IMediator mediator) : ControllerBase
     [HttpGet("overdue")]
     public async Task<IActionResult> GetOverdue(CancellationToken ct) =>
         Ok(await mediator.Send(new GetOverduePaymentsQuery(), ct));
+
+    [HttpGet("overdue/paged")]
+    public async Task<IActionResult> GetOverduePaged([FromQuery] int page = 1, [FromQuery] int pageSize = 10, CancellationToken ct = default) =>
+        Ok((await mediator.Send(new GetOverduePaymentsQuery(), ct)).ToPagedResponse(page, pageSize));
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreatePaymentCommand cmd, CancellationToken ct)

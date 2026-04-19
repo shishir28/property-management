@@ -46,6 +46,13 @@ import { MatIconModule } from '@angular/material/icon';
           <tr mat-header-row *matHeaderRowDef="cols"></tr>
           <tr mat-row *matRowDef="let row; columns: cols;"></tr>
         </table>
+        <div class="pager">
+          <span>Page {{ leasePage() }} · {{ leaseTotalCount() }} total</span>
+          <div class="pager-actions">
+            <button mat-stroked-button type="button" [disabled]="leasePage() === 1" (click)="previousLeasePage()">Previous</button>
+            <button mat-stroked-button type="button" [disabled]="leasePage() * pageSize >= leaseTotalCount()" (click)="nextLeasePage()">Next</button>
+          </div>
+        </div>
       </mat-tab>
 
       <mat-tab label="Expiring Soon">
@@ -62,40 +69,105 @@ import { MatIconModule } from '@angular/material/icon';
           <tr mat-header-row *matHeaderRowDef="cols"></tr>
           <tr mat-row *matRowDef="let row; columns: cols;"></tr>
         </table>
+        <div class="pager">
+          <span>Page {{ expiringPage() }} · {{ expiringTotalCount() }} total</span>
+          <div class="pager-actions">
+            <button mat-stroked-button type="button" [disabled]="expiringPage() === 1" (click)="previousExpiringPage()">Previous</button>
+            <button mat-stroked-button type="button" [disabled]="expiringPage() * pageSize >= expiringTotalCount()" (click)="nextExpiringPage()">Next</button>
+          </div>
+        </div>
       </mat-tab>
     </mat-tab-group>
   `,
-  styles: [`.form-card{margin:16px 0}mat-form-field{margin-right:8px}.full-width{width:100%}`]
+  styles: [`.form-card{margin:16px 0}mat-form-field{margin-right:8px}.full-width{width:100%}.pager{display:flex;justify-content:space-between;align-items:center;margin-top:12px}.pager-actions{display:flex;gap:8px}`]
 })
 export class LeasesComponent implements OnInit {
   private api = inject(ApiService);
   private snack = inject(MatSnackBar);
   leases = signal<Lease[]>([]);
   expiring = signal<Lease[]>([]);
+  leaseTotalCount = signal(0);
+  expiringTotalCount = signal(0);
+  leasePage = signal(1);
+  expiringPage = signal(1);
+  readonly pageSize = 10;
   cols = ['unit', 'rent', 'end', 'status', 'actions'];
   form = { propertyId: '', tenantId: '', unitNumber: '', startDate: '', endDate: '', monthlyRent: 0, securityDeposit: 0 };
 
   ngOnInit() {
-    this.api.getLeases().subscribe(l => this.leases.set(l));
-    this.api.getExpiringLeases().subscribe(l => this.expiring.set(l));
+    this.loadLeases();
+    this.loadExpiring();
   }
 
   add() {
     this.api.createLease(this.form).subscribe(() => {
       this.snack.open('Lease created', 'OK', { duration: 2000 });
-      this.api.getLeases().subscribe(l => this.leases.set(l));
+      this.leasePage.set(1);
+      this.loadLeases();
+      this.loadExpiring();
     });
   }
 
   activate(id: string) {
     this.api.activateLease(id).subscribe(() => {
       this.snack.open('Lease activated — onboarding workflow triggered', 'OK', { duration: 3000 });
-      this.api.getLeases().subscribe(l => this.leases.set(l));
+      this.loadLeases();
+      this.loadExpiring();
     });
   }
 
   triggerRenewal(id: string) {
     this.api.triggerRenewal(id).subscribe(() =>
       this.snack.open('Renewal workflow triggered', 'OK', { duration: 2000 }));
+  }
+
+  nextLeasePage() {
+    if (this.leasePage() * this.pageSize >= this.leaseTotalCount()) {
+      return;
+    }
+
+    this.leasePage.update(page => page + 1);
+    this.loadLeases();
+  }
+
+  previousLeasePage() {
+    if (this.leasePage() === 1) {
+      return;
+    }
+
+    this.leasePage.update(page => page - 1);
+    this.loadLeases();
+  }
+
+  nextExpiringPage() {
+    if (this.expiringPage() * this.pageSize >= this.expiringTotalCount()) {
+      return;
+    }
+
+    this.expiringPage.update(page => page + 1);
+    this.loadExpiring();
+  }
+
+  previousExpiringPage() {
+    if (this.expiringPage() === 1) {
+      return;
+    }
+
+    this.expiringPage.update(page => page - 1);
+    this.loadExpiring();
+  }
+
+  private loadLeases() {
+    this.api.getLeasesPage(this.leasePage(), this.pageSize).subscribe(response => {
+      this.leases.set(response.items);
+      this.leaseTotalCount.set(response.totalCount);
+    });
+  }
+
+  private loadExpiring() {
+    this.api.getExpiringLeasesPage(this.expiringPage(), this.pageSize).subscribe(response => {
+      this.expiring.set(response.items);
+      this.expiringTotalCount.set(response.totalCount);
+    });
   }
 }

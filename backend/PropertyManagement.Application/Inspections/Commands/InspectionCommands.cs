@@ -9,7 +9,7 @@ public record CreateInspectionCommand(Guid PropertyId, Guid? LeaseId, string Typ
 public record CompleteInspectionCommand(Guid InspectionId, string Notes) : IRequest;
 public record CancelInspectionCommand(Guid InspectionId) : IRequest;
 
-public class CreateInspectionHandler(IInspectionRepository repo, IUnitOfWork uow, IWorkflowClient workflows)
+public class CreateInspectionHandler(IInspectionRepository repo, IUnitOfWork uow)
     : IRequestHandler<CreateInspectionCommand, Guid>
 {
     public async Task<Guid> Handle(CreateInspectionCommand cmd, CancellationToken ct)
@@ -18,12 +18,11 @@ public class CreateInspectionHandler(IInspectionRepository repo, IUnitOfWork uow
         var inspection = Inspection.Create(cmd.PropertyId, cmd.LeaseId, type, cmd.ScheduledAt);
         await repo.AddAsync(inspection, ct);
         await uow.SaveChangesAsync(ct);
-        await workflows.TriggerInspectionWorkflowAsync(inspection.Id, ct);
         return inspection.Id;
     }
 }
 
-public class CompleteInspectionHandler(IInspectionRepository repo, IUnitOfWork uow)
+public class CompleteInspectionHandler(IInspectionRepository repo, IUnitOfWork uow, IWorkflowClient workflows)
     : IRequestHandler<CompleteInspectionCommand>
 {
     public async Task Handle(CompleteInspectionCommand cmd, CancellationToken ct)
@@ -33,6 +32,7 @@ public class CompleteInspectionHandler(IInspectionRepository repo, IUnitOfWork u
         inspection.Complete(cmd.Notes);
         await repo.UpdateAsync(inspection, ct);
         await uow.SaveChangesAsync(ct);
+        await workflows.TriggerInspectionWorkflowAsync(inspection.Id, ct);
     }
 }
 

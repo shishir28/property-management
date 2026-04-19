@@ -6,6 +6,7 @@ This repository contains a multi-service property management platform made up of
 - A `FastAPI` orchestration service for workflow automation
 - An `Angular` frontend
 - A local `TiDB` cluster running in Docker
+- A `Redis` job store for persistent workflow status
 
 The easiest way to run the full stack locally is with Docker Compose.
 
@@ -61,6 +62,7 @@ When the stack is running, these endpoints are exposed locally:
 - Orchestration API: `http://localhost:8000`
 - TiDB SQL port: `localhost:4000`
 - TiDB status page: `http://localhost:10080/status`
+- Redis: `localhost:6379`
 
 ## Run Locally With Docker
 
@@ -110,6 +112,25 @@ ollama pull qwen2.5:3b
 ```
 
 If Ollama is not running, the frontend and backend can still start, but workflow execution in the orchestration service may fail.
+
+## Authentication
+
+The API now uses JWT bearer authentication for controller endpoints. For local development, the repository includes a development-only login bootstrap.
+
+Default local credentials:
+
+- Username: `admin@property.local`
+- Password: `Passw0rd!`
+
+Login endpoint:
+
+```bash
+curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin@property.local","password":"Passw0rd!"}'
+```
+
+The Angular app uses the same credentials on the `/login` page by default. You can override them for Docker runs using the values in `.env.example`.
 
 ## First-Run Notes
 
@@ -308,6 +329,10 @@ curl http://localhost:8000/jobs/<job-id>
 ## Architecture
 
 See [`docs/architecture.md`](docs/architecture.md) for the overall project architecture and Mermaid diagram.
+
+## Roadmap
+
+See [`docs/implementation-roadmap.md`](docs/implementation-roadmap.md) for the prioritized implementation plan and suggested build order.
 
 ## Troubleshooting
 

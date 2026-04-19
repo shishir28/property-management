@@ -15,15 +15,70 @@ AVAILABLE_AGENTS = ["lease_renewal", "maintenance", "rent_collection", "onboardi
 class SupervisorState(TypedDict):
     request: str
     context: dict
+    discovered_context: dict
     selected_agents: list[str]
     agent_results: dict
     summary: str
     error: str
 
 
+async def discover_context(state: SupervisorState) -> SupervisorState:
+    try:
+        ctx = dict(state.get("context", {}))
+
+        expiring_task = api_client.get_expiring_leases()
+        leases_task = api_client.get_leases()
+        urgent_task = api_client.get_open_maintenance("Urgent")
+        emergency_task = api_client.get_open_maintenance("Emergency")
+        inspections_task = api_client.get_inspections()
+        overdue_task = api_client.get_overdue_payments()
+
+        expiring_leases, leases, urgent_requests, emergency_requests, inspections, overdue_payments = await asyncio.gather(
+            expiring_task,
+            leases_task,
+            urgent_task,
+            emergency_task,
+            inspections_task,
+            overdue_task
+        )
+
+        draft_leases = [lease for lease in leases if lease.get("status") == "Draft"]
+        actionable_inspections = [
+            inspection for inspection in inspections
+            if inspection.get("notes") or inspection.get("leaseId")
+        ]
+        high_priority_requests = emergency_requests + [
+            request for request in urgent_requests
+            if request.get("id") not in {item.get("id") for item in emergency_requests}
+        ]
+
+        discovered = {
+            "expiring_leases": expiring_leases[:5],
+            "draft_leases": draft_leases[:5],
+            "maintenance_requests": high_priority_requests[:5],
+            "actionable_inspections": actionable_inspections[:5],
+            "overdue_payments": overdue_payments[:5]
+        }
+
+        if not ctx.get("lease_id") and expiring_leases:
+            ctx["lease_id"] = expiring_leases[0].get("id")
+        if not ctx.get("maintenance_request_id") and high_priority_requests:
+            ctx["maintenance_request_id"] = high_priority_requests[0].get("id")
+        if not ctx.get("inspection_id") and actionable_inspections:
+            ctx["inspection_id"] = actionable_inspections[0].get("id")
+        if not ctx.get("tenant_id") and draft_leases:
+            ctx["tenant_id"] = draft_leases[0].get("tenantId")
+            ctx.setdefault("lease_id", draft_leases[0].get("id"))
+
+        return {**state, "context": ctx, "discovered_context": discovered}
+    except Exception as e:
+        return {**state, "error": str(e)}
+
+
 async def classify_intent(state: SupervisorState) -> SupervisorState:
     try:
         ctx = state.get("context", {})
+        discovered = state.get("discovered_context", {})
         available_ids = [
             f"lease_id: {ctx['lease_id']}" if ctx.get("lease_id") else None,
             f"tenant_id: {ctx['tenant_id']}" if ctx.get("tenant_id") else None,
@@ -31,6 +86,27 @@ async def classify_intent(state: SupervisorState) -> SupervisorState:
             f"inspection_id: {ctx['inspection_id']}" if ctx.get("inspection_id") else None,
         ]
         ids_text = ", ".join(x for x in available_ids if x) or "none provided"
+
+        expiring_text = _format_records(
+            discovered.get("expiring_leases", []),
+            lambda lease: f"{lease['id']} | unit {lease['unitNumber']} | end {lease['endDate']} | rent {lease['monthlyRent']}"
+        )
+        draft_text = _format_records(
+            discovered.get("draft_leases", []),
+            lambda lease: f"{lease['id']} | tenant {lease['tenantId']} | unit {lease['unitNumber']} | status {lease['status']}"
+        )
+        maintenance_text = _format_records(
+            discovered.get("maintenance_requests", []),
+            lambda request: f"{request['id']} | {request['priority']} | {request['title']} | status {request['status']}"
+        )
+        inspection_text = _format_records(
+            discovered.get("actionable_inspections", []),
+            lambda inspection: f"{inspection['id']} | {inspection['type']} | lease {inspection.get('leaseId')} | status {inspection['status']}"
+        )
+        overdue_text = _format_records(
+            discovered.get("overdue_payments", []),
+            lambda payment: f"{payment['id']} | lease {payment['leaseId']} | amount {payment['amount']} | due {payment['dueDate']}"
+        )
 
         prompt = f"""You are a property management workflow supervisor.
 
@@ -44,22 +120,60 @@ Available agents and their required context:
 User request: {state['request']}
 Available context IDs: {ids_text}
 
-Select only agents for which the required IDs are present (rent_collection needs none).
+Discovered candidates from the API:
+Expiring leases:
+{expiring_text}
+
+Draft leases:
+{draft_text}
+
+High priority maintenance requests:
+{maintenance_text}
+
+Actionable inspections:
+{inspection_text}
+
+Overdue payments:
+{overdue_text}
+
+Use the discovered candidates to fill in missing IDs when they clearly match the request.
+Select only agents that are relevant to the request.
 Reply in exactly this format:
 AGENTS: <comma-separated agent names, or NONE>
+LEASE_ID: <id or NONE>
+TENANT_ID: <id or NONE>
+MAINTENANCE_REQUEST_ID: <id or NONE>
+INSPECTION_ID: <id or NONE>
 REASON: <one sentence>"""
 
         llm = get_llm(fast=True)
         response = await llm.ainvoke([HumanMessage(content=prompt)])
         selected = []
+        resolved_ids = {}
         for line in response.content.strip().splitlines():
             if line.startswith("AGENTS:"):
                 raw = line.replace("AGENTS:", "").strip()
                 if raw.upper() != "NONE":
                     selected = [a.strip() for a in raw.split(",") if a.strip() in AVAILABLE_AGENTS]
-                break
+            elif line.startswith("LEASE_ID:"):
+                value = line.replace("LEASE_ID:", "").strip()
+                if value.upper() != "NONE":
+                    resolved_ids["lease_id"] = value
+            elif line.startswith("TENANT_ID:"):
+                value = line.replace("TENANT_ID:", "").strip()
+                if value.upper() != "NONE":
+                    resolved_ids["tenant_id"] = value
+            elif line.startswith("MAINTENANCE_REQUEST_ID:"):
+                value = line.replace("MAINTENANCE_REQUEST_ID:", "").strip()
+                if value.upper() != "NONE":
+                    resolved_ids["maintenance_request_id"] = value
+            elif line.startswith("INSPECTION_ID:"):
+                value = line.replace("INSPECTION_ID:", "").strip()
+                if value.upper() != "NONE":
+                    resolved_ids["inspection_id"] = value
 
-        return {**state, "selected_agents": selected}
+        merged_context = {**ctx, **resolved_ids}
+        return {**state, "context": merged_context, "selected_agents": selected}
     except Exception as e:
         return {**state, "error": str(e)}
 
@@ -161,6 +275,7 @@ async def aggregate_results(state: SupervisorState) -> SupervisorState:
     prompt = f"""You are a property management supervisor. Summarise these workflow outcomes in 2-3 sentences.
 
 Original request: {state['request']}
+Resolved context: {state.get('context', {})}
 Outcomes:
 {chr(10).join(lines)}
 
@@ -173,13 +288,21 @@ def has_error(state: SupervisorState) -> str:
     return "error" if state.get("error") else "continue"
 
 
+def _format_records(records: list[dict], formatter) -> str:
+    if not records:
+        return "- none"
+    return "\n".join(f"- {formatter(record)}" for record in records)
+
+
 def build_supervisor_graph() -> StateGraph:
     graph = StateGraph(SupervisorState)
+    graph.add_node("discover_context", discover_context)
     graph.add_node("classify_intent", classify_intent)
     graph.add_node("dispatch_agents", dispatch_agents)
     graph.add_node("aggregate_results", aggregate_results)
 
-    graph.set_entry_point("classify_intent")
+    graph.set_entry_point("discover_context")
+    graph.add_conditional_edges("discover_context", has_error, {"error": END, "continue": "classify_intent"})
     graph.add_conditional_edges("classify_intent", has_error, {"error": END, "continue": "dispatch_agents"})
     graph.add_conditional_edges("dispatch_agents", has_error, {"error": END, "continue": "aggregate_results"})
     graph.add_edge("aggregate_results", END)

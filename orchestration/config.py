@@ -5,6 +5,8 @@ class Settings(BaseSettings):
     ollama_model: str = "qwen2.5:14b"
     ollama_fast_model: str = "qwen2.5:3b"
     dotnet_api_base_url: str = "http://localhost:5000"
+    redis_url: str = "redis://localhost:6379/0"
+    job_ttl_seconds: int = 86400
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

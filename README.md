@@ -96,7 +96,7 @@ The orchestration container is configured to call Ollama on your host using:
 
 - `OLLAMA_BASE_URL=http://host.docker.internal:11434`
 
-The default models in [orchestration/config.py](/home/shishirmishra/Learnings/property-management/orchestration/config.py:1) are:
+The default models in [`orchestration/config.py`](orchestration/config.py) are:
 
 - `qwen2.5:14b`
 - `qwen2.5:3b`
@@ -307,7 +307,7 @@ curl http://localhost:8000/jobs/<job-id>
 
 ## Architecture
 
-See [docs/architecture.md](/home/shishirmishra/Learnings/property-management/docs/architecture.md) for the overall project architecture and Mermaid diagram.
+See [`docs/architecture.md`](docs/architecture.md) for the overall project architecture and Mermaid diagram.
 
 ## Troubleshooting
 

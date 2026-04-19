@@ -1,0 +1,29 @@
+# ── .NET ──────────────────────────────────────────────────────────────────
+backend/**/bin/
+backend/**/obj/
+backend/**/*.user
+
+# ── Python ────────────────────────────────────────────────────────────────
+orchestration/venv/
+orchestration/__pycache__/
+orchestration/**/__pycache__/
+orchestration/**/*.py[cod]
+
+# ── Node / Angular ────────────────────────────────────────────────────────
+frontend/**/node_modules/
+frontend/**/.angular/
+
+# ── Environment / secrets ─────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Git / docs ────────────────────────────────────────────────────────────
+.git/
+.gitignore
+docs/
+README.md
+
+# ── OS ────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

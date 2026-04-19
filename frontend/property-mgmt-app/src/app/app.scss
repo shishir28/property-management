@@ -1,0 +1,6 @@
+.sidenav-container { height: 100vh; }
+.sidenav { width: 220px; }
+.sidenav mat-toolbar { padding: 0 16px; }
+.content { display: flex; flex-direction: column; height: 100%; }
+.page-content { padding: 24px; flex: 1; overflow-y: auto; }
+.active-link { background: rgba(255,255,255,0.15) !important; }

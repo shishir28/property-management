@@ -1,0 +1,122 @@
+services:
+
+  # ── TiDB cluster ──────────────────────────────────────────────────────────
+
+  pd:
+    image: pingcap/pd:latest
+    container_name: pd
+    ports:
+      - "2379:2379"
+    volumes:
+      - pd-data:/data
+    command:
+      - --name=pd
+      - --data-dir=/data
+      - --client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://pd:2379
+      - --peer-urls=http://0.0.0.0:2380
+      - --advertise-peer-urls=http://pd:2380
+      - --initial-cluster=pd=http://pd:2380
+    restart: unless-stopped
+    networks:
+      - property-net
+
+  tikv:
+    image: pingcap/tikv:latest
+    container_name: tikv
+    volumes:
+      - tikv-data:/data
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv:20160
+      - --data-dir=/data
+      - --pd=pd:2379
+    depends_on:
+      - pd
+    restart: unless-stopped
+    networks:
+      - property-net
+
+  tidb:
+    image: pingcap/tidb:latest
+    container_name: tidb
+    ports:
+      - "4000:4000"
+      - "10080:10080"
+    command:
+      - --store=tikv
+      - --path=pd:2379
+      - -L=warn
+    depends_on:
+      - tikv
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:10080/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - property-net
+
+  # ── .NET 10 API — creates schema + seeds data on startup ─────────────────
+
+  dotnet-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dotnet-api
+    ports:
+      - "5000:5000"
+    environment:
+      ConnectionStrings__TiDb: "Server=tidb;Port=4000;Database=property_mgmt;User=root;Password=;"
+      Orchestration__BaseUrl: "http://orchestration:8000"
+      ASPNETCORE_ENVIRONMENT: Production
+    depends_on:
+      tidb:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - property-net
+
+  # ── Python Orchestration ──────────────────────────────────────────────────
+
+  orchestration:
+    build:
+      context: ./orchestration
+      dockerfile: Dockerfile
+    container_name: orchestration
+    ports:
+      - "8000:8000"
+    environment:
+      OLLAMA_BASE_URL: "http://host.docker.internal:11434"
+      DOTNET_API_BASE_URL: "http://dotnet-api:5000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - dotnet-api
+    restart: unless-stopped
+    networks:
+      - property-net
+
+  # ── Angular Frontend (nginx) ──────────────────────────────────────────────
+
+  frontend:
+    build:
+      context: ./frontend/property-mgmt-app
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      - dotnet-api
+    restart: unless-stopped
+    networks:
+      - property-net
+
+volumes:
+  pd-data:
+  tikv-data:
+
+networks:
+  property-net:
+    driver: bridge

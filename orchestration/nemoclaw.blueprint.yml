@@ -1,0 +1,28 @@
+name: property-management-orchestration
+version: "1.0"
+
+runtime:
+  shell: python
+  entry: uvicorn main:app --host 0.0.0.0 --port 8000
+  working_dir: .
+
+sandbox:
+  network:
+    egress:
+      - host: localhost
+        port: 11434   # Ollama
+      - host: localhost
+        port: 5000    # .NET API
+  seccomp: default
+  landlock: true
+
+inference:
+  provider: ollama
+  base_url: http://localhost:11434
+  models:
+    - qwen2.5:14b
+    - qwen2.5:3b
+
+env:
+  OLLAMA_BASE_URL: http://localhost:11434
+  DOTNET_API_BASE_URL: http://localhost:5000
